@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+	<meta charset="UTF-8">
+	<title>Color Tools</title>
+	<link href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.16/themes/base/jquery-ui.css" rel="stylesheet" type="text/css">
+	<style type="text/css">
+		body{background:#fafafa;color:#333;margin:1em}
+		h1{font-size:200%}
+		input{width:5em;margin:0 1em 0 0}
+		p{max-width:45em}
+		td{white-space:nowrap}
+		.clamped{color:red;padding-left:1em;visibility:hidden}
+		.color td{padding-top:1em}
+		.colorname{font-weight:bold;padding:0 1em 0 0}
+		.slider{margin:0 1em;width:4in}
+		#colorbar{width:1in}
+		#copy{font-size:70%;margin:2em 0}
+		#options{margin:1em 0}
+		#options td{padding-right:1em}
+	</style>
+</head>
+<body>
+	<h1>Color conversions</h1>
+	<table cellspacing="0" id="options">
+		<tr>
+			<td><label for="whitepoint">White point</label></td>
+			<td><label for="rgbmodel">RGB model</label></td>
+			<td><label for="rgbgamma">RGB gamma</label></td>
+			<td><label for="yuvmatrix">Y&prime;UV coefficients</label></td>
+		</tr>
+		<tr>
+			<td><select id="whitepoint">
+				<option>D65</option>
+			</select></td>
+			<td><select id="rgbmodel">
+				<option>sRGB</option>
+			</select></td>
+			<td><select id="rgbmodel">
+				<option>sRGB (~2.2)</option>
+			</select></td>
+			<td><select id="yuvmatrix"></select></td>
+		</tr>
+	</table>
+	<table cellspacing="0" id="colors"></table>
+	<p>Note: a clamped value means that the selected color is not representable within the gamut of that particular colorspace.</p>
+	<p>If sRGB is clamped, the color bar on the right is only showing the nearest approximation and not the true color.</p>
+
+	<h1>Color difference</h1>
+
+	<p>These attempt to measure the perceptual difference between two colors.</p>
+
+	<table cellspacing="0">
+		<tr>
+			<td rowspan="3" class="colorname">CIE L*a*b* 1</td>
+			<td><label for="del1">Lightness</label></td>
+			<td><input type="text" id="del1"></td>
+		</tr>
+		<tr>
+			<td><label for="dea1">a</label></td>
+			<td><input type="text" id="dea1"></td>
+		</tr>
+		<tr>
+			<td><label for="deb1">b</label></td>
+			<td><input type="text" id="deb1"></td>
+		</tr>
+		<tr class="color">
+			<td rowspan="3" class="colorname">CIE L*a*b* 2</td>
+			<td><label for="del2">Lightness</label></td>
+			<td><input type="text" id="del2"></td>
+		</tr>
+		<tr>
+			<td><label for="dea2">a</label></td>
+			<td><input type="text" id="dea2"></td>
+		</tr>
+		<tr>
+			<td><label for="deb2">b</label></td>
+			<td><input type="text" id="deb2"></td>
+		</tr>
+		<tr class="color">
+			<td colspan="2" class="colorname"><label for="de1976">CIE Delta E 1976</label></td>
+			<td><input type="text" id="de1976" readonly></td>
+		</tr>
+		<tr class="color">
+			<td colspan="2" class="colorname"><label for="de1994ga">CIE Delta E 1994 &ndash; Graphic Arts</label></td>
+			<td><input type="text" id="de1994ga" readonly></td>
+		</tr>
+		<tr class="color">
+			<td colspan="2" class="colorname"><label for="de1994t">CIE Delta E 1994 &ndash; Textiles</label></td>
+			<td><input type="text" id="de1994t" readonly></td>
+		</tr>
+		<tr class="color">
+			<td colspan="2" class="colorname"><label for="de2000">CIE Delta E 2000</label></td>
+			<td><input type="text" id="de2000" readonly></td>
+		</tr>
+	</table>
+
+	<div id="copy">
+		&copy; 2011 <a href="mailto:phrosty@gmail.com">Cory Nelson</a><br>
+		The <a href="colors.js">code</a> is under the <a href="http://www.opensource.org/licenses/BSD-2-Clause">2-clause BSD License</a>.
+	</div>
+
+	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.3/jquery.min.js"></script>
+	<script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.16/jquery-ui.min.js"></script>
+	<script src="colors.js"></script>
+</body>
+</html>
