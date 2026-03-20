@@ -61,10 +61,10 @@ function clamprad(hue)
 
 function ColorLShuv(L, S, h, clamped)
 {
-	this.clamped = clamped || L < 0 || L > 100; // TODO: what is S min/max?
+	this.clamped = clamped || L < 0 || L > 100 || S < 0 || S > 4.98017697436056e1;
 
 	this.L = clamp(L, 0, 100);
-	this.S = S;
+	this.S = clamp(S, 0, 4.98017697436056e1); // 13/316141*sqrt(1466778355965)
 	this.h = clamprad(h);
 
 	this.toLChuv = function()
@@ -75,10 +75,10 @@ function ColorLShuv(L, S, h, clamped)
 
 function ColorLChuv(L, C, h, clamped)
 {
-	this.clamped = clamped || L < 0 || L > 100 || C < 0 || C > 7.40066582332174237e2;
+	this.clamped = clamped || L < 0 || L > 100 || C < 0 || C > 7.13741035326207e2;
 
 	this.L = clamp(L, 0, 100);
-	this.C = clamp(C, 0, 7.40066582332174237e2); // 240/316141*sqrt(950343809713)
+	this.C = clamp(C, 0, 7.13741035326207e2);
 	this.h = clamprad(h);
 
 	this.toLShuv = function()
@@ -95,11 +95,11 @@ function ColorLChuv(L, C, h, clamped)
 
 function ColorLuv(L, u, v, clamped)
 {
-	this.clamped = clamped || L < 0 || L > 100 || u < -81304600/316141 || v > 54113280/316141; // TODO: what is u max, and v min??
+	this.clamped = clamped || L < 0 || L > 100 || u < -81304600/316141 || u > 7.10416791677801e2 || v < -1.54899193099642e2 || v > 54113280/316141;
 
 	this.L = clamp(L, 0, 100);
-	this.u = (u < -81304600/316141) ? -81304600/316141 : u;
-	this.v = (v > 54113280/316141) ? 54113280/316141 : v;
+	this.u = clamp(u, -81304600/316141, 7.10416791677801e2);
+	this.v = clamp(v, -1.54899193099642e2, 54113280/316141);
 
 	this.toLChuv = function()
 	{
@@ -595,11 +595,15 @@ function deltaE2000(lch1, lch2)
 	return Math.sqrt(delta_L * delta_L + delta_C * delta_C + delta_H * delta_H + RT * delta_C * delta_H);
 }
 
+var refX = 31271/32902; // normalized standard observer D65.
+var refY = 1;
+var refZ = 35827/32902;
+
 var Color =
 {
-	refX: 31271/32902, // normalized standard observer D65.
-	refY: 1,
-	refZ: 35827/32902,
+	refX: refX,
+	refY: refY,
+	refZ: refZ,
 	yuvmatrices:
 	{
 		'bt601':
@@ -770,9 +774,9 @@ var Color =
 			components: ['X', 'Y', 'Z'],
 			componentInfo:
 			[
-				{ minimum: 0, maximum: 0.9505, scale: 100 },
-				{ minimum: 0, maximum: 1, scale: 100 },
-				{ minimum: 0, maximum: 1.089, scale: 100 }
+				{ minimum: 0, maximum: refX, scale: 100 },
+				{ minimum: 0, maximum: refY, scale: 100 },
+				{ minimum: 0, maximum: refZ, scale: 100 }
 			],
 			toColor: function(x) { return new ColorXYZ(x[0], x[1], x[2]); },
 			toGeneric: function(x) { return [ x.X, x.Y, x.Z ]; },
@@ -833,8 +837,8 @@ var Color =
 			componentInfo:
 			[
 				{ minimum: 0, maximum: 100, scale: 1 },
-				{ minimum: -81304600/316141, maximum: 720, scale: 1 },
-				{ minimum: -160, maximum: 54113280/316141, scale: 1 }
+				{ minimum: -81304600/316141, maximum: 7.10416791677801e2, scale: 1 },
+				{ minimum: -1.54899193099642e2, maximum: 54113280/316141, scale: 1 }
 			],
 			toColor: function(x) { return new ColorLuv(x[0], x[1], x[2]); },
 			toGeneric: function(x) { return [ x.L, x.u, x.v ]; },
@@ -858,7 +862,7 @@ var Color =
 			componentInfo:
 			[
 				{ minimum: 0, maximum: 100, scale: 1 },
-				{ minimum: 0, maximum: 7.40066582332174237e2, scale: 1 },
+				{ minimum: 0, maximum: 7.13741035326207e2, scale: 1 },
 				{ minimum: 0, maximum: Math.PI*2, scale: 180/Math.PI }
 			],
 			toColor: function(x) { return new ColorLChuv(x[0], x[1], x[2]); },
@@ -883,7 +887,7 @@ var Color =
 			componentInfo:
 			[
 				{ minimum: 0, maximum: 100, scale: 1 },
-				{ minimum: 0, maximum: 4.5, scale: 25 },
+				{ minimum: 0, maximum: 4.98017697436056e1, scale: 25 },
 				{ minimum: 0, maximum: Math.PI*2, scale: 180/Math.PI }
 			],
 			toColor: function(x) { return new ColorLShuv(x[0], x[1], x[2]); },
