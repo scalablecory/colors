@@ -59,6 +59,43 @@ function clamprad(hue)
 	return hue;
 }
 
+function mat3x3_inverse(m)
+{
+	var a = m[0][0], b = m[0][1], c = m[0][2];
+	var d = m[1][0], e = m[1][1], f = m[1][2];
+	var g = m[2][0], h = m[2][1], i = m[2][2];
+
+	var det = a*(e*i - f*h) - b*(d*i - f*g) + c*(d*h - e*g);
+
+	return [
+		[(e*i - f*h)/det, (c*h - b*i)/det, (b*f - c*e)/det],
+		[(f*g - d*i)/det, (a*i - c*g)/det, (c*d - a*f)/det],
+		[(d*h - e*g)/det, (b*g - a*h)/det, (a*e - b*d)/det]
+	];
+}
+
+function computeRGBModel(name, rx, ry, gx, gy, bx, by, wx, wy)
+{
+	var Xr = rx/ry, Zr = (1 - rx - ry)/ry;
+	var Xg = gx/gy, Zg = (1 - gx - gy)/gy;
+	var Xb = bx/by, Zb = (1 - bx - by)/by;
+	var Xw = wx/wy, Zw = (1 - wx - wy)/wy;
+
+	var Minv = mat3x3_inverse([[Xr, Xg, Xb], [1, 1, 1], [Zr, Zg, Zb]]);
+
+	var Sr = Minv[0][0]*Xw + Minv[0][1] + Minv[0][2]*Zw;
+	var Sg = Minv[1][0]*Xw + Minv[1][1] + Minv[1][2]*Zw;
+	var Sb = Minv[2][0]*Xw + Minv[2][1] + Minv[2][2]*Zw;
+
+	var toXYZ = [
+		[Sr*Xr, Sg*Xg, Sb*Xb],
+		[Sr,    Sg,    Sb    ],
+		[Sr*Zr, Sg*Zg, Sb*Zb]
+	];
+
+	return { name: name, toXYZ: toXYZ, fromXYZ: mat3x3_inverse(toXYZ) };
+}
+
 function ColorLShuv(L, S, h, clamped)
 {
 	this.clamped = clamped || L < 0 || L > 100 || S < 0 || S > 4.98017697436056e1;
@@ -221,10 +258,11 @@ function ColorXYZ(X, Y, Z, clamped)
 
 	this.toLinearRGB = function()
 	{
+		var m = Color.rgbmodel.fromXYZ;
 		return new ColorLinearRGB(
-			this.X * (641589/197960)      + this.Y * (-608687/395920)    + this.Z * (-49353/98980),
-			this.X * (-42591639/43944050) + this.Y * (82435961/43944050) + this.Z * (1826061/43944050),
-			this.X * (49353/887015)       + this.Y * (-180961/887015)    + this.Z * (49353/46685),
+			this.X * m[0][0] + this.Y * m[0][1] + this.Z * m[0][2],
+			this.X * m[1][0] + this.Y * m[1][1] + this.Z * m[1][2],
+			this.X * m[2][0] + this.Y * m[2][1] + this.Z * m[2][2],
 			this.clamped);
 	};
 
@@ -294,21 +332,17 @@ function ColorLinearRGB(R, G, B, clamped)
 
 	this.toRGB = function()
 	{
-		function toRGBc(c)
-		{
-			if(c > 0.0031308) return Math.pow(c, 1 / 2.4) * 1.055 - 0.055;
-			return c * 12.92;
-		}
-
-		return new ColorRGB(toRGBc(this.R), toRGBc(this.G), toRGBc(this.B), this.clamped);
+		var encode = Color.gamma.encode;
+		return new ColorRGB(encode(this.R), encode(this.G), encode(this.B), this.clamped);
 	};
 
 	this.toXYZ = function()
 	{
+		var m = Color.rgbmodel.toXYZ;
 		return new ColorXYZ(
-			this.R * (5067776/12288897) + this.G * (4394405/12288897) + this.B * (4435075/24577794),
-			this.R * (871024/4096299)   + this.G * (8788810/12288897) + this.B * (887015/12288897),
-			this.R * (79184/4096299)    + this.G * (4394405/36866691) + this.B * (70074185/73733382),
+			this.R * m[0][0] + this.G * m[0][1] + this.B * m[0][2],
+			this.R * m[1][0] + this.G * m[1][1] + this.B * m[1][2],
+			this.R * m[2][0] + this.G * m[2][1] + this.B * m[2][2],
 			this.clamped);
 	};
 }
@@ -431,13 +465,8 @@ function ColorRGB(R, G, B, clamped)
 
 	this.toLinearRGB = function()
 	{
-		function toLinearRGBc(c)
-		{
-			if(c > 0.04045) return Math.pow((c + 0.055) / 1.055, 2.4);
-			return c / 12.92;
-		}
-
-		return new ColorLinearRGB(toLinearRGBc(this.R), toLinearRGBc(this.G), toLinearRGBc(this.B), this.clamped);
+		var decode = Color.gamma.decode;
+		return new ColorLinearRGB(decode(this.R), decode(this.G), decode(this.B), this.clamped);
 	};
 
 	this.toYUV = function()
@@ -599,11 +628,72 @@ var refX = 31271/32902; // normalized standard observer D65.
 var refY = 1;
 var refZ = 35827/32902;
 
+var wD65x = 31271/100000;
+var wD65y = 32902/100000;
+
 var Color =
 {
 	refX: refX,
 	refY: refY,
 	refZ: refZ,
+	rgbmodels:
+	{
+		'srgb': computeRGBModel('sRGB / Rec. 709', 0.64, 0.33, 0.30, 0.60, 0.15, 0.06, wD65x, wD65y),
+		'displayp3': computeRGBModel('Display P3', 0.680, 0.320, 0.265, 0.690, 0.150, 0.060, wD65x, wD65y),
+		'adobergb': computeRGBModel('Adobe RGB (1998)', 0.64, 0.33, 0.21, 0.71, 0.15, 0.06, wD65x, wD65y),
+		'bt2020': computeRGBModel('Rec. 2020', 0.708, 0.292, 0.170, 0.797, 0.131, 0.046, wD65x, wD65y)
+	},
+	gammas:
+	{
+		'srgb':
+		{
+			name: 'sRGB (~2.2)',
+			encode: function(c) { if(c > 0.0031308) return Math.pow(c, 1/2.4) * 1.055 - 0.055; return c * 12.92; },
+			decode: function(c) { if(c > 0.04045) return Math.pow((c + 0.055) / 1.055, 2.4); return c / 12.92; }
+		},
+		'bt1886':
+		{
+			name: 'BT.1886 (γ=2.4)',
+			encode: function(c) { return Math.pow(Math.max(c, 0), 1/2.4); },
+			decode: function(c) { return Math.pow(Math.max(c, 0), 2.4); }
+		},
+		'bt709':
+		{
+			name: 'BT.709 / BT.2020',
+			encode: function(c) { if(c >= 0.018) return Math.pow(c, 0.45) * 1.099 - 0.099; return c * 4.5; },
+			decode: function(c) { if(c >= 0.081) return Math.pow((c + 0.099) / 1.099, 1/0.45); return c / 4.5; }
+		},
+		'pq':
+		{
+			name: 'PQ / ST 2084 (HDR10, Dolby Vision)',
+			encode: function(c) {
+				var m1 = 2610/16384, m2 = 2523/4096 * 128;
+				var c1 = 3424/4096, c2 = 2413/4096 * 32, c3 = 2392/4096 * 32;
+				var Ym1 = Math.pow(Math.max(c, 0), m1);
+				return Math.pow((c1 + c2 * Ym1) / (1 + c3 * Ym1), m2);
+			},
+			decode: function(c) {
+				var m1 = 2610/16384, m2 = 2523/4096 * 128;
+				var c1 = 3424/4096, c2 = 2413/4096 * 32, c3 = 2392/4096 * 32;
+				var Vm2 = Math.pow(Math.max(c, 0), 1/m2);
+				return Math.pow(Math.max(Vm2 - c1, 0) / (c2 - c3 * Vm2), 1/m1);
+			}
+		},
+		'hlg':
+		{
+			name: 'HLG (Rec. 2100)',
+			encode: function(c) {
+				var a = 0.17883277, b = 0.28466892, d = 0.55991073;
+				if(c <= 1/12) return Math.sqrt(3 * Math.max(c, 0));
+				return a * Math.log(12 * c - b) + d;
+			},
+			decode: function(c) {
+				var a = 0.17883277, b = 0.28466892, d = 0.55991073;
+				if(c <= 0.5) return Math.max(c, 0) * c / 3;
+				return (Math.exp((c - d) / a) + b) / 12;
+			}
+		}
+	},
 	yuvmatrices:
 	{
 		'bt601':
@@ -1084,6 +1174,60 @@ $(yuvselect).change(function()
 
 	Color.yuvmatrix = next;
 	updateColors('rgb', rgb, false);
+});
+
+// initialize RGB model select.
+
+Color.rgbmodel = Color.rgbmodels['srgb'];
+
+var rgbmodelselect = document.getElementById('rgbmodel');
+for(id in Color.rgbmodels)
+{
+	var option = document.createElement('option');
+	option.value = id;
+	option.selected = (id == 'srgb');
+
+	option.appendChild(document.createTextNode(Color.rgbmodels[id].name));
+	rgbmodelselect.appendChild(option);
+}
+
+$(rgbmodelselect).change(function()
+{
+	var next = Color.rgbmodels[rgbmodelselect.value];
+
+	if(!next) return;
+
+	var xyz = Color.colorspaces['linear_rgb'].getColor().toXYZ();
+
+	Color.rgbmodel = next;
+	updateColors('xyz', xyz, false);
+});
+
+// initialize RGB gamma select.
+
+Color.gamma = Color.gammas['srgb'];
+
+var rgbgammaselect = document.getElementById('rgbgamma');
+for(id in Color.gammas)
+{
+	var option = document.createElement('option');
+	option.value = id;
+	option.selected = (id == 'srgb');
+
+	option.appendChild(document.createTextNode(Color.gammas[id].name));
+	rgbgammaselect.appendChild(option);
+}
+
+$(rgbgammaselect).change(function()
+{
+	var next = Color.gammas[rgbgammaselect.value];
+
+	if(!next) return;
+
+	var linear = Color.colorspaces['rgb'].getColor().toLinearRGB();
+
+	Color.gamma = next;
+	updateColors('linear_rgb', linear, false);
 });
 
 // Delta E events.
